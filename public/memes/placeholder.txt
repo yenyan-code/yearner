@@ -1,3 +1,0 @@
-Put your meme images in this folder.
-For example, save success-kid.jpg, side-eye-chloe.jpg, drake-reject.jpg, drake-accept.jpg here!
-Make sure the filenames match the IDs in MemeLibrary.jsx.
