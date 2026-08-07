@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import time
+import pygame
 
 from pathlib import Path
 
@@ -31,9 +32,27 @@ photo_path = Path(
 photo = cv2.imread(str(photo_path))
 
 if photo is None:
-    print("ERROR: Could not load photo.")
+    print("ERROR: Could not load photo:")
     print(photo_path)
     exit()
+
+
+# ============================================================
+# MUSIC
+# ============================================================
+
+music_path = Path(
+    "/home/yen/Downloads/part 1.mp3"
+)
+
+if not music_path.exists():
+    print("ERROR: Could not find music:")
+    print(music_path)
+    exit()
+
+
+# Initialize pygame audio
+pygame.mixer.init()
 
 photo_visible = False
 
@@ -56,11 +75,11 @@ if not cap.isOpened():
 left_start_time = None
 photo_start_time = 0
 
-# How long the person must remain on the left
-REQUIRED_TIME = 0.5
+# Person must remain on the left for this long
+REQUIRED_TIME = 3.0
 
-# How long the photo remains visible
-PHOTO_DURATION = 3
+# Maximum time the photo can remain visible
+PHOTO_DURATION = 40
 
 
 # ============================================================
@@ -77,10 +96,9 @@ while True:
     # Mirror camera
     frame = cv2.flip(frame, 1)
 
-    # Current time
     current_time = time.time()
 
-    # Convert camera frame to RGB
+    # Convert BGR → RGB
     frame_rgb = cv2.cvtColor(
         frame,
         cv2.COLOR_BGR2RGB
@@ -88,84 +106,73 @@ while True:
 
 
     # ========================================================
-    # ONLY DETECT POSE WHILE PHOTO IS NOT VISIBLE
+    # ALWAYS DETECT PERSON
+    # ========================================================
+
+    result = pose.process(frame_rgb)
+
+    person_on_left = False
+    person_detected = False
+
+
+    if result.pose_landmarks:
+
+        person_detected = True
+
+        landmarks = result.pose_landmarks.landmark
+
+
+        # ----------------------------------------------------
+        # Upper body landmarks
+        # ----------------------------------------------------
+
+        left_shoulder = landmarks[
+            mp_pose.PoseLandmark.LEFT_SHOULDER
+        ]
+
+        right_shoulder = landmarks[
+            mp_pose.PoseLandmark.RIGHT_SHOULDER
+        ]
+
+        left_hip = landmarks[
+            mp_pose.PoseLandmark.LEFT_HIP
+        ]
+
+        right_hip = landmarks[
+            mp_pose.PoseLandmark.RIGHT_HIP
+        ]
+
+
+        # ----------------------------------------------------
+        # Calculate upper-body center
+        # ----------------------------------------------------
+
+        center_x = (
+            left_shoulder.x +
+            right_shoulder.x +
+            left_hip.x +
+            right_hip.x
+        ) / 4
+
+
+        # ----------------------------------------------------
+        # Detect LEFT side
+        # ----------------------------------------------------
+
+        if center_x < 0.50:
+
+            person_on_left = True
+
+
+    # ========================================================
+    # PHOTO IS NOT CURRENTLY VISIBLE
     # ========================================================
 
     if not photo_visible:
 
-        result = pose.process(frame_rgb)
-
-        person_on_left = False
-
-
-        # ====================================================
-        # CHECK IF A PERSON WAS DETECTED
-        # ====================================================
-
-        if result.pose_landmarks:
-
-            landmarks = result.pose_landmarks.landmark
-
-
-            # ------------------------------------------------
-            # Upper body landmarks
-            # ------------------------------------------------
-
-            left_shoulder = landmarks[
-                mp_pose.PoseLandmark.LEFT_SHOULDER
-            ]
-
-            right_shoulder = landmarks[
-                mp_pose.PoseLandmark.RIGHT_SHOULDER
-            ]
-
-            left_hip = landmarks[
-                mp_pose.PoseLandmark.LEFT_HIP
-            ]
-
-            right_hip = landmarks[
-                mp_pose.PoseLandmark.RIGHT_HIP
-            ]
-
-
-            # ------------------------------------------------
-            # Calculate upper-body center
-            # ------------------------------------------------
-
-            center_x = (
-                left_shoulder.x +
-                right_shoulder.x +
-                left_hip.x +
-                right_hip.x
-            ) / 4
-
-
-            # ------------------------------------------------
-            # Check left side
-            # ------------------------------------------------
-
-            if center_x < 0.50:
-
-                person_on_left = True
-
-
-            # ------------------------------------------------
-            # Draw pose
-            # ------------------------------------------------
-
-            mp_draw.draw_landmarks(
-                frame,
-                result.pose_landmarks,
-                mp_pose.POSE_CONNECTIONS
-            )
-
-
-        # ====================================================
-        # POSITION TIMER
-        # ====================================================
-
         if person_on_left:
 
+            # Start timer when entering left side
             if left_start_time is None:
 
                 left_start_time = current_time
@@ -177,8 +184,9 @@ while True:
                     left_start_time
                 )
 
+
                 # ============================================
-                # TRIGGER PHOTO
+                # TRIGGER PHOTO + MUSIC
                 # ============================================
 
                 if time_on_left >= REQUIRED_TIME:
@@ -190,10 +198,53 @@ while True:
                     left_start_time = None
 
 
+                    # Start music
+                    pygame.mixer.music.load(
+                        str(music_path)
+                    )
+
+                    pygame.mixer.music.play()
+
         else:
 
-            # Person left the trigger area
+            # Person is not on left
             left_start_time = None
+
+
+    # ========================================================
+    # PHOTO IS CURRENTLY VISIBLE
+    # ========================================================
+
+    else:
+
+        # ----------------------------------------------------
+        # IMPORTANT:
+        # If the person moves RIGHT, hide the photo
+        # ----------------------------------------------------
+
+        if person_detected and not person_on_left:
+
+            photo_visible = False
+
+            left_start_time = None
+
+            # Stop music
+            pygame.mixer.music.stop()
+
+
+        # ----------------------------------------------------
+        # Maximum photo duration
+        # ----------------------------------------------------
+
+        elif (
+            current_time -
+            photo_start_time
+        ) >= PHOTO_DURATION:
+
+            photo_visible = False
+
+            # Stop music
+            pygame.mixer.music.stop()
 
 
     # ========================================================
@@ -202,22 +253,24 @@ while True:
 
     if photo_visible:
 
-        # Keep the original aspect ratio
-
         frame_height, frame_width = frame.shape[:2]
 
         photo_height, photo_width = photo.shape[:2]
 
 
-        # Scale photo to fit the camera window
-
+        # Keep original aspect ratio
         scale = min(
             frame_width / photo_width,
             frame_height / photo_height
         )
 
-        new_width = int(photo_width * scale)
-        new_height = int(photo_height * scale)
+        new_width = int(
+            photo_width * scale
+        )
+
+        new_height = int(
+            photo_height * scale
+        )
 
 
         resized_photo = cv2.resize(
@@ -226,8 +279,7 @@ while True:
         )
 
 
-        # Center the photo
-
+        # Center photo
         x = (
             frame_width -
             new_width
@@ -240,29 +292,15 @@ while True:
 
 
         # Put photo onto camera frame
-
         frame[
             y:y + new_height,
             x:x + new_width
         ] = resized_photo
 
 
-        # ====================================================
-        # PHOTO TIMER
-        # ====================================================
-
-        if (
-            current_time -
-            photo_start_time
-        ) >= PHOTO_DURATION:
-
-            photo_visible = False
-
-
     # ========================================================
     # DISPLAY CAMERA
     # ========================================================
-
     cv2.imshow(
         "Camera",
         frame
@@ -270,7 +308,6 @@ while True:
 
 
     # ESC = EXIT
-
     if cv2.waitKey(1) & 0xFF == 27:
         break
 
@@ -278,6 +315,8 @@ while True:
 # ============================================================
 # CLEANUP
 # ============================================================
+pygame.mixer.music.stop()
+pygame.mixer.quit()
 
 cap.release()
 cv2.destroyAllWindows()
