@@ -247,60 +247,60 @@ while True:
             pygame.mixer.music.stop()
 
 
-    # ========================================================
-    # SHOW PHOTO
-    # ========================================================
+        # ========================================================
+        # SHOW PHOTO
+        # ========================================================
 
-    if photo_visible:
+        if photo_visible:
 
-        frame_height, frame_width = frame.shape[:2]
+            frame_height, frame_width = frame.shape[:2]
 
-        photo_height, photo_width = photo.shape[:2]
+            photo_height, photo_width = photo.shape[:2]
 
+            # ----------------------------------------------------
+            # Resize photo so it completely covers the camera
+            # ----------------------------------------------------
 
-        # Keep original aspect ratio
-        scale = min(
-            frame_width / photo_width,
-            frame_height / photo_height
-        )
+            scale = max(
+                frame_width / photo_width,
+                frame_height / photo_height
+            )
 
-        new_width = int(
-            photo_width * scale
-        )
+            new_width = int(photo_width * scale)
+            new_height = int(photo_height * scale)
 
-        new_height = int(
-            photo_height * scale
-        )
+            resized_photo = cv2.resize(
+                photo,
+                (new_width, new_height)
+            )
 
+            # ----------------------------------------------------
+            # Crop the excess parts
+            # ----------------------------------------------------
 
-        resized_photo = cv2.resize(
-            photo,
-            (new_width, new_height)
-        )
+            crop_x = (
+                new_width - frame_width
+            ) // 2
 
+            crop_y = (
+                new_height - frame_height
+            ) // 2
 
-        # Center photo
-        x = (
-            frame_width -
-            new_width
-        ) // 2
+            cropped_photo = resized_photo[
+                crop_y:crop_y + frame_height,
+                crop_x:crop_x + frame_width
+            ]
 
-        y = (
-            frame_height -
-            new_height
-        ) // 2
+            # ----------------------------------------------------
+            # Make photo exactly the same size as camera
+            # ----------------------------------------------------
 
-
-        # Put photo onto camera frame
-        frame[
-            y:y + new_height,
-            x:x + new_width
-        ] = resized_photo
-
+            frame = cropped_photo.copy()
 
     # ========================================================
     # DISPLAY CAMERA
     # ========================================================
+
     cv2.imshow(
         "Camera",
         frame
@@ -315,6 +315,7 @@ while True:
 # ============================================================
 # CLEANUP
 # ============================================================
+
 pygame.mixer.music.stop()
 pygame.mixer.quit()
 
