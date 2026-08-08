@@ -20,14 +20,17 @@ pose = mp_pose.Pose(
     min_tracking_confidence=0.7
 )
 
+# ============================================================
+# PROJECT PATH
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # ============================================================
 # PHOTO
 # ============================================================
 
-photo_path = Path(
-    "/home/yen/Desktop/yearn/the man who can't be moved.jpg"
-)
+photo_path = BASE_DIR / "assets" / "trigger_photo.jpg"
 
 photo = cv2.imread(str(photo_path))
 
@@ -41,9 +44,7 @@ if photo is None:
 # MUSIC
 # ============================================================
 
-music_path = Path(
-    "/home/yen/Downloads/part 1.mp3"
-)
+music_path = BASE_DIR / "assets" / "part_1.mp3"
 
 if not music_path.exists():
     print("ERROR: Could not find music:")
