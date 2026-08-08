@@ -51,21 +51,17 @@ The application follows this process:
 Using the **uv** project manager:
 
 ```bash
-# Install Python 3.10 if it is not already installed
+# Install Python 3.10
 uv python install 3.10
 
-# Create a virtual environment using Python 3.10
+# Create virtual environment
 uv venv --python 3.10
 
-# Activate the virtual environment
+# Activate virtual environment
 source .venv/bin/activate
-# Linux
 
-.venv\Scripts\activate
-# Windows PowerShell
-
-# Install dependencies
-uv pip install mediapipe opencv-contrib-python pygame
+# Install project dependencies
+uv pip install -r requirements.txt
 
 # Run the project
 uv run main.py
