@@ -34,8 +34,6 @@ The project uses the following libraries:
 
 ## How It Works
 
--- luh
-
 The application follows this process:
 
 1. Open the computer's webcam.
